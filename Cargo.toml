@@ -1,0 +1,12 @@
+[package]
+name = "build-lua-in-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lua-rs = { path = "crates/lua-rs" }
+
+[workspace]
+members = [
+    "crates/*"
+]
