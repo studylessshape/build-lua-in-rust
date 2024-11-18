@@ -10,6 +10,7 @@ fn main() {
     }
 
     let file = File::open(&args[1]).unwrap();
+    // let file = File::open("test_lua/hello_world.lua").unwrap();
 
     let proto = parse::load(file);
     vm::ExeState::new().execute(&proto);

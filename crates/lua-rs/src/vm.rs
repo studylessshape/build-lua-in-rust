@@ -8,6 +8,12 @@ pub struct ExeState {
     stack: Vec<Value>,
 }
 
+impl Default for ExeState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExeState {
     pub fn new() -> Self {
         let mut global = HashMap::new();
@@ -48,6 +54,9 @@ impl ExeState {
                         panic!("invalid function: {func:?}");
                     }
                 }
+                ByteCode::LoadNil(dst) => self.set_stack(dst, Value::Nil),
+                ByteCode::LoadBool(dst, v) => self.set_stack(dst, Value::Boolean(v)),
+                ByteCode::LoadInt(dst, v) => self.set_stack(dst, Value::Integer(v.into())),
             }
         }
     }

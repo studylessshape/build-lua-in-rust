@@ -1,2 +1,5 @@
-print "Hello, world"
-print "print again..."
+print("Hello, world")
+print("print again...")
+print(nil)
+print(123)
+print(1234.0)
