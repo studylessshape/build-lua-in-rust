@@ -17,39 +17,6 @@ macro_rules! match_string {
     };
 }
 
-struct After<'a, F1, F2> {
-    /// after char need compare to
-    after: char,
-    lex: &'a mut Lex,
-    long: F1,
-    short: F2,
-}
-
-impl<'a, F1, F2> After<'a, F1, F2>
-where
-    F1: Fn(&mut Lex) -> Result<Token>,
-    F2: Fn(&mut Lex) -> Result<Token>,
-{
-    pub fn new(ch: char, lex: &'a mut Lex, long: F1, short: F2) -> Self {
-        Self {
-            after: ch,
-            lex,
-            long,
-            short,
-        }
-    }
-
-    pub fn done(&mut self) -> Result<Token> {
-        let ch = self.lex.read_char()?;
-        if ch == self.after {
-            (self.long)(&mut self.lex)
-        } else {
-            self.lex.back_seek()?;
-            (self.short)(&mut self.lex)
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Lex {
     input: File,
@@ -179,7 +146,12 @@ impl Lex {
         F1: Fn(&mut Lex) -> Result<Token>,
         F2: Fn(&mut Lex) -> Result<Token>,
     {
-        return After::new(after, self, long, short).done();
+        if after == self.read_char()? {
+            long(self)
+        } else {
+            self.back_seek()?;
+            short(self)
+        }
     }
 
     /// Simple read after.
