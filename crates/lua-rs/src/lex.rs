@@ -107,7 +107,7 @@ impl Lex {
                     |lex| lex.read_after('.', Token::Dots, Token::Concat),
                     |_| Ok(Token::Dot),
                 ),
-                '0'..='9' => self.read_number(),
+                '0'..='9' => self.read_number(ch),
                 'a'..='z' | 'A'..='Z' | '_' => self.read_name(ch),
                 _ => Err(Error::other(format!("invalid char {ch}")))
             };
@@ -170,16 +170,6 @@ impl Lex {
             "while" => return Ok(Token::While)
         );
 
-        if let Some(ch) = str.chars().next() {
-            if ch.is_ascii_digit() {
-                if str.contains('.') {
-                    return Ok(Token::Float(str.parse::<f64>().map_err(|_e| Error::other("Invalid Float"))?));
-                } else {
-                    return Ok(Token::Integer(str.parse::<i64>().map_err(|_e| Error::other("Invalid Integer!"))?));
-                }
-            }
-        }
-
         Ok(Token::Name(str))
     }
 
@@ -213,8 +203,21 @@ impl Lex {
         }
     }
 
-    fn read_number(&mut self) -> Result<Token> {
-        todo!()
+    fn read_number(&mut self, first: char) -> Result<Token> {
+        let mut str = first.to_string();
+        while let Ok(ch) = self.read_char() {
+            if ch.is_ascii_digit() || ch == '.' || ch == 'x' || ch == 'e' || ch == 'b'{
+                str.push(ch)
+            } else {
+                self.back_seek()?;
+                break;
+            }
+        }
+        if str.contains('.') {
+            return Ok(Token::Float(str.parse::<f64>().map_err(|_e| Error::other("Invalid Float"))?));
+        } else {
+            return Ok(Token::Integer(str.parse::<i64>().map_err(|_e| Error::other("Invalid Integer!"))?));
+        }
     }
 
     /// read char from file stream, the cursor position will step one.
