@@ -6,6 +6,7 @@ use crate::{byte_code::ByteCode, parse::ParseProto, value::Value};
 pub struct ExeState {
     global: HashMap<String, Value>,
     stack: Vec<Value>,
+    func_index: usize,
 }
 
 impl Default for ExeState {
@@ -22,11 +23,17 @@ impl ExeState {
         Self {
             global,
             stack: Vec::new(),
+            func_index: 0,
         }
     }
 
     pub fn set_stack(&mut self, dst: u8, v: Value) {
-        self.stack.insert(dst as usize, v);
+        let dst = dst as usize;
+        match dst.cmp(&self.stack.len()) {
+            std::cmp::Ordering::Equal => self.stack.push(v),
+            std::cmp::Ordering::Less => self.stack[dst] = v,
+            std::cmp::Ordering::Greater => panic!("fail in stack!"),
+        }
     }
 
     pub fn execute(&mut self, proto: &ParseProto) {
@@ -47,7 +54,8 @@ impl ExeState {
                     self.set_stack(dst, v);
                 }
                 ByteCode::Call(func, _) => {
-                    let func = &self.stack[func as usize];
+                    self.func_index = func as usize;
+                    let func = &self.stack[self.func_index];
                     if let Value::Function(f) = func {
                         f(self);
                     } else {
@@ -57,6 +65,10 @@ impl ExeState {
                 ByteCode::LoadNil(dst) => self.set_stack(dst, Value::Nil),
                 ByteCode::LoadBool(dst, v) => self.set_stack(dst, Value::Boolean(v)),
                 ByteCode::LoadInt(dst, v) => self.set_stack(dst, Value::Integer(v.into())),
+                ByteCode::Move(dst, v) => {
+                    let v = proto.constants[v as usize].clone();
+                    self.set_stack(dst, v);
+                },
             }
         }
     }
@@ -66,6 +78,6 @@ impl ExeState {
 ///
 /// It supports only 1 argument and assumes the argument is at index:1 on stack.
 pub fn lib_print(state: &mut ExeState) -> i32 {
-    println!("{:?}", state.stack[1]);
+    println!("{:?}", state.stack[state.func_index + 1]);
     0
 }

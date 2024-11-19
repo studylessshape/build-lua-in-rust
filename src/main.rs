@@ -13,5 +13,9 @@ fn main() {
     // let file = File::open("test_lua/hello_world.lua").unwrap();
 
     let proto = parse::load(file);
+    if let Err(err) = proto {
+        panic!("{}", err)
+    }
+    let proto = proto.unwrap();
     vm::ExeState::new().execute(&proto);
 }
