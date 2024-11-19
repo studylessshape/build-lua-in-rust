@@ -6,17 +6,6 @@ use std::{
 
 use crate::token::Token;
 
-#[macro_export]
-macro_rules! match_string {
-    ($str:ident, $other1:expr => $run1:stmt $(, $other:expr => $run:stmt)*) => {
-        if $str == $other1 {
-            $run1
-        } $(else if $str == $other {
-            $run
-        })*
-    };
-}
-
 #[derive(Debug)]
 pub struct Lex {
     input: File,
@@ -112,32 +101,31 @@ impl Lex {
             }
         }
 
-        match_string!(str,
-            "and" => return Ok(Token::And),
-            "break" => return Ok(Token::Break),
-            "do" => return Ok(Token::Do),
-            "else" => return Ok(Token::Else),
-            "elseif" => return Ok(Token::ElseIf),
-            "end" => return Ok(Token::End),
-            "false" => return Ok(Token::False),
-            "for" => return Ok(Token::For),
-            "function" => return Ok(Token::Function),
-            "goto" => return Ok(Token::Goto),
-            "if" => return Ok(Token::If),
-            "in" => return Ok(Token::In),
-            "local" => return Ok(Token::Local),
-            "nil" => return Ok(Token::Nil),
-            "not" => return Ok(Token::Not),
-            "or" => return Ok(Token::Or),
-            "repeat" => return Ok(Token::Repeat),
-            "return" => return Ok(Token::Return),
-            "then" => return Ok(Token::Then),
-            "true" => return Ok(Token::True),
-            "until" => return Ok(Token::Until),
-            "while" => return Ok(Token::While)
-        );
-
-        Ok(Token::Name(str))
+        Ok(match str.as_str() {
+            "and" => Token::And,
+            "break" => Token::Break,
+            "do" => Token::Do,
+            "else" => Token::Else,
+            "elseif" => Token::ElseIf,
+            "end" => Token::End,
+            "false" => Token::False,
+            "for" => Token::For,
+            "function" => Token::Function,
+            "goto" => Token::Goto,
+            "if" => Token::If,
+            "in" => Token::In,
+            "local" => Token::Local,
+            "nil" => Token::Nil,
+            "not" => Token::Not,
+            "or" => Token::Or,
+            "repeat" => Token::Repeat,
+            "return" => Token::Return,
+            "then" => Token::Then,
+            "true" => Token::True,
+            "until" => Token::Until,
+            "while" => Token::While,
+            _ => Token::Name(str)
+        })
     }
 
     /// Use [After] to handle complex situation
