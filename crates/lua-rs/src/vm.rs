@@ -48,11 +48,18 @@ impl ExeState {
                     } else {
                         panic!("invalid global key: {name:?}");
                     }
-                }
+                },
                 ByteCode::LocalConst(dst, c) => {
                     let v = proto.constants[c as usize].clone();
                     self.set_stack(dst, v);
-                }
+                },
+                ByteCode::LoadNil(dst) => self.set_stack(dst, Value::Nil),
+                ByteCode::LoadBool(dst, v) => self.set_stack(dst, Value::Boolean(v)),
+                ByteCode::LoadInt(dst, v) => self.set_stack(dst, Value::Integer(v.into())),
+                ByteCode::Move(dst, v) => {
+                    let v = proto.constants[v as usize].clone();
+                    self.set_stack(dst, v);
+                },
                 ByteCode::Call(func, _) => {
                     self.func_index = func as usize;
                     let func = &self.stack[self.func_index];
@@ -62,13 +69,6 @@ impl ExeState {
                         panic!("invalid function: {func:?}");
                     }
                 }
-                ByteCode::LoadNil(dst) => self.set_stack(dst, Value::Nil),
-                ByteCode::LoadBool(dst, v) => self.set_stack(dst, Value::Boolean(v)),
-                ByteCode::LoadInt(dst, v) => self.set_stack(dst, Value::Integer(v.into())),
-                ByteCode::Move(dst, v) => {
-                    let v = proto.constants[v as usize].clone();
-                    self.set_stack(dst, v);
-                },
             }
         }
     }

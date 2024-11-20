@@ -9,25 +9,33 @@ use crate::token::Token;
 #[derive(Debug)]
 pub struct Lex {
     input: File,
+    ahead: Option<Token>
 }
 
 impl Lex {
     pub fn new(input: File) -> Self {
-        Self { input }
+        Self { input, ahead: None }
     }
 
     pub fn next(&mut self) -> Result<Token> {
+        match self.ahead.take() {
+            Some(token) => Ok(token),
+            None => self.do_next(),
+        }
+    }
+
+    pub fn do_next(&mut self) -> Result<Token> {
         while let Ok(ch) = self.read_char() {
             return match ch {
                 ' ' | '\r' | '\n' | '\t' => continue,
                 '\0' => Ok(Token::EOF),
-                '\"' => self.read_string(),
+                '"' | '\'' => self.read_string(ch),
                 '+' => Ok(Token::Add),
                 '-' => self.after(
                     '-',
                     |lex| {
                         lex.read_comment();
-                        lex.next()
+                        lex.do_next()
                     },
                     |_| Ok(Token::Sub),
                 ),
@@ -58,11 +66,14 @@ impl Lex {
                 ';' => Ok(Token::SemiColon),
                 ':' => self.read_after(':', Token::DoubleColon, Token::Colon),
                 ',' => Ok(Token::Comma),
-                '.' => self.after(
-                    '.',
-                    |lex| lex.read_after('.', Token::Dots, Token::Concat),
-                    |_| Ok(Token::Dot),
-                ),
+                '.' => match self.read_char()? {
+                    '.' => self.read_after('.', Token::Dots, Token::Concat),
+                    '0'..='9' => {
+                        self.back_seek()?;
+                        self.read_number(ch)
+                    },
+                    _ => Ok(Token::Dot)
+                },
                 '0'..='9' => self.read_number(ch),
                 'a'..='z' | 'A'..='Z' | '_' => self.read_name(ch),
                 _ => Err(Error::other(format!("invalid char {ch}")))
@@ -72,17 +83,18 @@ impl Lex {
         Ok(Token::EOF)
     }
 
-    fn read_string(&mut self) -> Result<Token> {
+    fn read_string(&mut self, qoute: char) -> Result<Token> {
         let mut str = String::new();
         while let Ok(ch) = self.read_char() {
             match ch {
-                '\"' => {
+                ch if ch == qoute => {
                     if str.ends_with('\\') {
                         str.push(ch);
                     } else {
                         break;
                     }
-                }
+                },
+                '\n' | '\0' => return Err(Error::other("unfinished string")),
                 _ => str.push(ch),
             }
         }
