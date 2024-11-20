@@ -34,7 +34,11 @@ impl ParseProto {
     fn chunk(&mut self) -> Result<()> {
         loop {
             match self.lex.next()? {
-                Token::Name(name) => self.function_call(name)?,
+                Token::Name(name) => if let Some(Token::Assign) = self.lex.peak()? {
+                    self.assignment(name)?;
+                } else {
+                    self.function_call(name)?;
+                },
                 Token::Local => self.local()?,
                 Token::EOF => break,
                 t => panic!("unexpected token: {t:?}")
@@ -42,6 +46,41 @@ impl ParseProto {
         }
 
         Ok(())
+    }
+
+    fn assignment(&mut self, var: String) -> Result<()> {
+        self.lex.next()?;
+
+        if let Some(i) = self.get_local(&var) {
+            self.load_exp(i)?;
+        } else {
+            let dst = self.add_const(Value::String(var)) as u8;
+            
+            let code = match self.lex.next()? {
+                Token::Nil => ByteCode::SetGlobalConst(dst, self.add_const(Value::Nil) as u8),
+                Token::True => ByteCode::SetGlobalConst(dst, self.add_const(Value::Boolean(true)) as u8),
+                Token::False => ByteCode::SetGlobalConst(dst, self.add_const(Value::Boolean(false)) as u8),
+                Token::Integer(i) => ByteCode::SetGlobalConst(dst, self.add_const(Value::Integer(i)) as u8),
+                Token::Float(f) => ByteCode::SetGlobalConst(dst, self.add_const(Value::Float(f)) as u8),
+                Token::String(s) => ByteCode::SetGlobalConst(dst, self.add_const(Value::String(s)) as u8),
+                Token::Name(var) => {
+                    if let Some(i) = self.get_local(&var) {
+                        ByteCode::SetGlobal(dst, i as u8)
+                    } else {
+                        ByteCode::SetGlobalGlobal(dst, self.add_const(Value::String(var)) as u8)
+                    }
+                },
+                _ => panic!("invalid argument")
+            };
+
+            self.byte_codes.push(code);
+        }
+
+        Ok(())
+    }
+
+    fn get_local(&mut self, var: &str) -> Option<usize> {
+        self.locals.iter().rposition(|l| l == var)
     }
 
     fn function_call(&mut self, name: String) -> Result<()> {

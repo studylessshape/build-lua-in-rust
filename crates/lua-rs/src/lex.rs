@@ -19,19 +19,27 @@ impl Lex {
 
     pub fn next(&mut self) -> Result<Token> {
         match self.ahead.take() {
+            None | Some(Token::EOF) => self.do_next(),
             Some(token) => Ok(token),
-            None => self.do_next(),
         }
     }
 
-    pub fn do_next(&mut self) -> Result<Token> {
+    pub fn peak(&mut self) -> Result<&Option<Token>> {
+        if None == self.ahead || Some(Token::EOF) == self.ahead {
+            self.ahead = Some(self.do_next()?);
+        }
+
+        Ok(&self.ahead)
+    }
+
+    fn do_next(&mut self) -> Result<Token> {
         while let Ok(ch) = self.read_char() {
             return match ch {
                 ' ' | '\r' | '\n' | '\t' => continue,
                 '\0' => Ok(Token::EOF),
                 '"' | '\'' => self.read_string(ch),
                 '+' => Ok(Token::Add),
-                '-' => self.after(
+                '-' => self.ahead_char(
                     '-',
                     |lex| {
                         lex.read_comment();
@@ -40,23 +48,23 @@ impl Lex {
                     |_| Ok(Token::Sub),
                 ),
                 '*' => Ok(Token::Mul),
-                '/' => self.read_after('/', Token::Idiv, Token::Div),
+                '/' => self.read_ahead('/', Token::Idiv, Token::Div),
                 '^' => Ok(Token::Pow),
                 '#' => Ok(Token::Len),
                 '&' => Ok(Token::BitAnd),
-                '~' => self.read_after('=', Token::NotEq, Token::BitXor),
+                '~' => self.read_ahead('=', Token::NotEq, Token::BitXor),
                 '|' => Ok(Token::BitOr),
-                '<' => self.after(
+                '<' => self.ahead_char(
                     '<',
                     |_| Ok(Token::ShiftL),
-                    |lex| lex.read_after('=', Token::LesEq, Token::Less),
+                    |lex| lex.read_ahead('=', Token::LesEq, Token::Less),
                 ),
-                '>' => self.after(
+                '>' => self.ahead_char(
                     '>',
                     |_| Ok(Token::ShiftR),
-                    |lex| lex.read_after('=', Token::GreEq, Token::Greater),
+                    |lex| lex.read_ahead('=', Token::GreEq, Token::Greater),
                 ),
-                '=' => self.read_after('=', Token::Equal, Token::Assign),
+                '=' => self.read_ahead('=', Token::Equal, Token::Assign),
                 '(' => Ok(Token::ParL),
                 ')' => Ok(Token::ParR),
                 '{' => Ok(Token::CurlyL),
@@ -64,10 +72,10 @@ impl Lex {
                 '[' => Ok(Token::SqurL),
                 ']' => Ok(Token::SqurR),
                 ';' => Ok(Token::SemiColon),
-                ':' => self.read_after(':', Token::DoubleColon, Token::Colon),
+                ':' => self.read_ahead(':', Token::DoubleColon, Token::Colon),
                 ',' => Ok(Token::Comma),
                 '.' => match self.read_char()? {
-                    '.' => self.read_after('.', Token::Dots, Token::Concat),
+                    '.' => self.read_ahead('.', Token::Dots, Token::Concat),
                     '0'..='9' => {
                         self.back_seek()?;
                         self.read_number(ch)
@@ -141,12 +149,12 @@ impl Lex {
     }
 
     /// Use [After] to handle complex situation
-    fn after<F1, F2>(&mut self, after: char, long: F1, short: F2) -> Result<Token>
+    fn ahead_char<F1, F2>(&mut self, ahead: char, long: F1, short: F2) -> Result<Token>
     where
         F1: Fn(&mut Lex) -> Result<Token>,
         F2: Fn(&mut Lex) -> Result<Token>,
     {
-        if after == self.read_char()? {
+        if ahead == self.read_char()? {
             long(self)
         } else {
             self.back_seek()?;
@@ -157,8 +165,8 @@ impl Lex {
     /// Simple read after.
     ///
     /// Complex is [Lex::after]
-    fn read_after(&mut self, after: char, long: Token, short: Token) -> Result<Token> {
-        if self.read_char()? == after {
+    fn read_ahead(&mut self, ahead: char, long: Token, short: Token) -> Result<Token> {
+        if self.read_char()? == ahead {
             Ok(long)
         } else {
             self.back_seek()?;
